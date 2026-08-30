@@ -1,7 +1,7 @@
 import type { InstrumentStats } from '../types/marketData';
 
 type StatsPanelProps = {
-  stats: InstrumentStats | null;
+  stats: InstrumentStats[] | null;
   loading: boolean;
 };
 
@@ -11,35 +11,54 @@ function formatPercent(value: number) {
 
 export function StatsPanel({ stats, loading }: StatsPanelProps) {
   if (loading) {
-    return (
-      <section className="stats-grid" aria-label="Loading statistics">
-        {[0, 1, 2].map((item) => (
-          <div className="stat-card skeleton" key={item} />
-        ))}
-      </section>
-    );
-  }
+      return (
+        <div className="stats-table-wrap">
+          <div className="stats-headers">
+            <div className="col name-col">Name</div>
+            <div className="col">Total return</div>
+            <div className="col">Daily volatility</div>
+            <div className="col">Max drawdown</div>
+          </div>
 
-  if (!stats) {
-    return null;
+          {[0, 1, 2].map((i) => (
+            <div className="stats-row-card" key={i}>
+              <div className="skeleton" />
+              <div className="skeleton" />
+              <div className="skeleton" />
+              <div className="skeleton" />
+            </div>
+          ))}
+        </div>
+      );
   }
+  if (!stats || stats.length === 0) return 'No instrument selected';
 
   return (
-    <section className="stats-grid" aria-label={`${stats.ticker} statistics`}>
-      <article className="stat-card">
-        <span>Total return</span>
-        <strong className={stats.totalReturnPercent >= 0 ? 'positive' : 'negative'}>
-          {formatPercent(stats.totalReturnPercent)}
-        </strong>
-      </article>
-      <article className="stat-card">
-        <span>Daily volatility</span>
-        <strong>{formatPercent(stats.dailyVolatilityPercent)}</strong>
-      </article>
-      <article className="stat-card">
-        <span>Max drawdown</span>
-        <strong className="negative">{formatPercent(stats.maxDrawdownPercent)}</strong>
-      </article>
-    </section>
-  );
+      <div className="stats-table-wrap">
+        <div className="stats-headers">
+          <div className="col name-col">Name</div>
+          <div className="col">Total return</div>
+          <div className="col">Daily volatility</div>
+          <div className="col">Max drawdown</div>
+        </div>
+
+        {stats.slice(0, 3).map((s) => (
+          <div className="stats-row-card" key={s.ticker}>
+            <div className="name-col name-value"><strong>{s.ticker}</strong></div>
+
+            <div className={`stat-value ${s.totalReturnPercent >= 0 ? 'positive' : 'negative'}`}>
+              {formatPercent(s.totalReturnPercent)}
+            </div>
+
+            <div className="stat-value">
+              {formatPercent(s.dailyVolatilityPercent)}
+            </div>
+
+            <div className="stat-value negative">
+              {formatPercent(s.maxDrawdownPercent)}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
 }

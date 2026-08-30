@@ -6,6 +6,8 @@ frontend/.env
 # .NET
 backend/bin/
 backend/obj/
+backend.tests/bin/
+backend.tests/obj/
 
 # IDE / OS
 .vs/

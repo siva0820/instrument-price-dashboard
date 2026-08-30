@@ -64,24 +64,29 @@ export function PriceChart({ series, loading }: PriceChartProps) {
     <div className="chart-wrap">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={chartData} margin={{ top: 12, right: 16, left: 0, bottom: 8 }}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} />
+          <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
           <XAxis
             dataKey="date"
             tickFormatter={formatDate}
             minTickGap={28}
             tickLine={false}
+            axisLine={false}
+            tick={{ fill: 'var(--muted)' }}
           />
           <YAxis
             width={70}
             tickFormatter={(value) => `$${Number(value).toFixed(0)}`}
             domain={['auto', 'auto']}
             tickLine={false}
+            axisLine={false}
+            tick={{ fill: 'var(--muted)' }}
           />
           <Tooltip
             labelFormatter={(label) => formatDate(String(label))}
             formatter={(value) => [`$${Number(value).toFixed(2)}`, 'Price']}
+            contentStyle={{ background: 'var(--card-bg)', color: 'var(--text)', borderColor: 'var(--border)' }}
           />
-          {series.length > 1 && <Legend />}
+          {series.length > 1 && <Legend wrapperStyle={{ color: 'var(--muted)' }} />}
           {series.map((item, index) => (
             <Line
               key={item.ticker}

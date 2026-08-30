@@ -2,9 +2,10 @@
   "compilerOptions": {
     "composite": true,
     "skipLibCheck": true,
+    "outDir": "./node_modules/.cache/vite-config",
+    "tsBuildInfoFile": "./node_modules/.cache/tsconfig.node.tsbuildinfo",
     "module": "ESNext",
-    "moduleResolution": "Bundler",
-    "allowImportingTsExtensions": true
+    "moduleResolution": "Bundler"
   },
   "include": ["vite.config.ts"]
 }

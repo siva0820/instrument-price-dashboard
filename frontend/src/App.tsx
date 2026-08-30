@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ThemeProvider, useTheme } from './theme';
 import { getInstruments, getPrices, getStats } from './api/marketDataApi';
 import { InstrumentSelector } from './components/InstrumentSelector';
 import { PriceChart } from './components/PriceChart';
@@ -13,15 +14,18 @@ function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : 'Something went wrong.';
 }
 
-export default function App() {
+function AppContent() {
   const [instruments, setInstruments] = useState<string[]>([]);
   const [search, setSearch] = useState('');
   const [selectedTickers, setSelectedTickers] = useState<string[]>([]);
   const [priceSeries, setPriceSeries] = useState<PriceSeriesResponse[]>([]);
-  const [primaryStats, setPrimaryStats] = useState<InstrumentStats | null>(null);
+  const [statsList, setStatsList] = useState<InstrumentStats[] | null>(null);
   const [loadingInstruments, setLoadingInstruments] = useState(true);
   const [loadingData, setLoadingData] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const priceCacheRef = useRef<Record<string, PriceSeriesResponse>>({});
+  const statsCacheRef = useRef<Record<string, InstrumentStats>>({});
+  const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
     const controller = new AbortController();
@@ -57,7 +61,7 @@ export default function App() {
     async function loadSelectedData() {
       if (selectedTickers.length === 0) {
         setPriceSeries([]);
-        setPrimaryStats(null);
+        setStatsList(null);
         return;
       }
 
@@ -67,18 +71,34 @@ export default function App() {
       try {
         const [series, stats] = await Promise.all([
           Promise.all(
-            selectedTickers.map((ticker) => getPrices(ticker, controller.signal)),
+            selectedTickers.map(async (ticker) => {
+              const cached = priceCacheRef.current[ticker];
+              if (cached) return cached;
+
+              const result = await getPrices(ticker, controller.signal);
+              priceCacheRef.current[ticker] = result;
+              return result;
+            }),
           ),
-          getStats(selectedTickers[0], controller.signal),
+          Promise.all(
+            selectedTickers.map(async (ticker) => {
+              const cached = statsCacheRef.current[ticker];
+              if (cached) return cached;
+
+              const result = await getStats(ticker, controller.signal);
+              statsCacheRef.current[ticker] = result;
+              return result;
+            }),
+          ),
         ]);
 
         setPriceSeries(series);
-        setPrimaryStats(stats);
+        setStatsList(stats);
       } catch (error) {
         if (!(error instanceof DOMException && error.name === 'AbortError')) {
           setError(getErrorMessage(error));
           setPriceSeries([]);
-          setPrimaryStats(null);
+          setStatsList(null);
         }
       } finally {
         if (!controller.signal.aborted) {
@@ -112,7 +132,8 @@ export default function App() {
     });
   }
 
-  const primaryTicker = selectedTickers[0];
+  const lineColors = ['#2563eb', '#0f766e', '#9333ea'];
+  const observationCount = priceSeries[0]?.prices.length;
 
   return (
     <main className="app-shell">
@@ -124,7 +145,20 @@ export default function App() {
             Explore 30-day price history, key statistics, and compare up to three instruments.
           </p>
         </div>
-        <div className="status-chip">200 instruments · 30 days</div>
+        <div className="header-actions">
+          <div className="status-chip">
+            {instruments.length || '—'} instruments
+            {observationCount ? ` · ${observationCount} days` : ''}
+          </div>
+          <button
+            type="button"
+            className="theme-toggle"
+            onClick={toggleTheme}
+            aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} theme`}
+          >
+            {theme === 'light' ? '🌙' : '☀️'}
+          </button>
+        </div>
       </header>
 
       {error && (
@@ -147,17 +181,35 @@ export default function App() {
         <section className="content-column">
           <section className="panel chart-panel">
             <div className="panel-heading chart-heading">
-              <div>
+              <div className="chart-heading-content">
                 <p className="eyebrow">30-day price history</p>
-                <h2>
-                  {selectedTickers.length > 0
-                    ? selectedTickers.join(' vs ')
-                    : 'No instrument selected'}
-                </h2>
+
+                {priceSeries.length > 0 && (
+                  <div className="chart-chips chart-chips-inline">
+                    {priceSeries.map((item, index) => {
+                      const color = lineColors[index % lineColors.length];
+                      return (
+                        <div
+                          className="chart-chip compact"
+                          key={item.ticker}
+                          style={{ borderColor: color }}
+                        >
+                          <span className="chip-swatch" style={{ background: color }} />
+                          <span className="chip-label">{item.ticker}</span>
+                          <button
+                            type="button"
+                            className="chip-remove"
+                            aria-label={`Unselect ${item.ticker}`}
+                            onClick={() => toggleTicker(item.ticker)}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-              {selectedTickers.length > 1 && (
-                <span className="comparison-badge">Comparison mode</span>
-              )}
             </div>
 
             <PriceChart series={priceSeries} loading={loadingData} />
@@ -165,18 +217,20 @@ export default function App() {
 
           <section className="stats-section">
             <div className="section-heading">
-              <div>
                 <p className="eyebrow">Computed statistics</p>
-                <h2>{primaryTicker ?? 'Select an instrument'}</h2>
-              </div>
-              {selectedTickers.length > 1 && (
-                <p>Statistics shown for the first selected ticker.</p>
-              )}
             </div>
-            <StatsPanel stats={primaryStats} loading={loadingData} />
+            <StatsPanel stats={statsList} loading={loadingData} />
           </section>
         </section>
       </div>
     </main>
+  );
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
   );
 }
